@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BKSCITY Security Monitoring</title>
+    <link rel="stylesheet" href="styledash.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Additional styles for motion detection */
+        .motion-detection {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .detection-box {
+            position: absolute;
+            border: 2px solid rgba(255, 0, 0, 0.7);
+            background-color: rgba(255, 0, 0, 0.2);
+            display: none;
+        }
+        .motion-alert {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(255, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: none;
+            z-index: 3;
+        }
+        .video-feed-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        #videoFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block !important; /* Force display */
+        }
+        #videoCanvas {
+            display: none; /* Hide canvas since we're showing video directly */
+        }
+        #processingCanvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>BKSCITY</span>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item active" data-page="dashboard">
+                    <i class="fas fa-th-large"></i>
+                    <span>Dashboard</span>
+                </div>
+                <a href="settings\index.html" class="menu-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="login.html" class="menu-item" id="logout-btn">
+    <i class="fas fa-sign-out-alt"></i>
+    <span>Logout</span>
+</a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard View -->
+            <div class="page-content active" id="dashboard-page">
+                <div class="header">
+                    <h1>Security Dashboard</h1>
+                    <div class="header-actions">
+                        <div class="user-info">
+                            <span class="user-name">Admin</span>
+                            <div class="user-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                        </div>
+                        <div class="date-time">
+                            <div class="date" id="current-date">15/May/2025</div>
+                            <div class="time" id="current-time">01:00 PM</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- Live Feed Section -->
+                    <div class="section live-feed">
+                        <div class="section-header">
+                            <h2>Live Surveillance</h2>
+                            <div class="section-actions">
+                                <select id="camera-select">
+                                    <option value="cam1">Camera 01</option>
+                                    <option value="cam2">Camera 02</option>
+                                    <option value="cam3">Camera 03</option>
+                                    <option value="cam4">Camera 04</option>
+                                </select>
+                                <span id="camera-location">Kalimalang</span>
+                            </div>
+                        </div>
+                        <div class="video-container">
+                            <div class="video-feed">
+                                <div class="video-feed-container">
+                                    <video id="videoFeed" autoplay muted playsinline></video>
+                                    <canvas id="videoCanvas"></canvas>
+                                    <canvas id="processingCanvas"></canvas>
+                                    <div class="motion-detection">
+                                        <div class="detection-box" id="detection1"></div>
+                                        <div class="detection-box" id="detection2"></div>
+                                        <div class="detection-box" id="detection3"></div>
+                                    </div>
+                                    <div class="motion-alert" id="motionAlert">MOTION DETECTED!</div>
+                                    <div class="video-overlay">
+                                        <div class="overlay-item recording">
+                                            <span class="pulse"></span>
+                                            <span>REC</span>
+                                        </div>
+                                        <div class="overlay-actions">
+                                            <button class="action-btn" id="takeSnapshot"><i class="fas fa-camera"></i></button>
+                                            <button class="action-btn"><i class="fas fa-backward"></i></button>
+                                            <button class="action-btn" id="toggleFullscreen"><i class="fas fa-expand-arrows-alt"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="video-controls">
+                                <div class="control-item" id="toggleMute">
+                                    <i class="fas fa-volume-mute"></i>
+                                </div>
+                                <div class="control-item">
+                                    <i class="fas fa-pause" id="pauseBtn"></i>
+                                </div>
+                                <div class="control-item" id="toggleFullscreenAlt">
+                                    <i class="fas fa-arrows-alt"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Details Section -->
+                    <div class="section details expandable" id="details-section">
+                        <div class="section-header">
+                            <h2>Alerts & Notifications</h2>
+                            <div class="section-actions">
+                                <button class="view-all-btn">View All</button>
+                            </div>
+                        </div>
+                        <div class="alerts-grid" id="alertsGrid">
+                            <!-- Alerts will be added dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Recorded Data Section -->
+                    <div class="section recorded-data expandable" id="records-section">
+                        <div class="section-header">
+                            <h2>Access Logs</h2>
+                            <div class="section-actions">
+                                <span class="records-count">5,000 records</span>
+                                <button class="view-all-btn">View All</button>
+                            </div>
+                        </div>
+                        <div class="records-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Date</th>
+                                        <th>Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recordsTableBody">
+                                    <!-- Data will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div class="page-content" id="settings-page">
+                <!-- ... (existing settings content remains the same) ... -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Motion Detection Configuration
+        const MOTION_THRESHOLD = 30; // Sensitivity threshold
+        const MIN_MOTION_AREA = 500; // Minimum area to consider as motion
+        const ALERT_COOLDOWN = 5000; // 5 seconds cooldown between alerts
+        
+        // DOM Elements
+        const videoFeed = document.getElementById('videoFeed');
+        const videoCanvas = document.getElementById('videoCanvas');
+        const processingCanvas = document.getElementById('processingCanvas');
+        const ctxVideo = videoCanvas.getContext('2d');
+        const ctxProcessing = processingCanvas.getContext('2d');
+        const detectionBoxes = document.querySelectorAll('.detection-box');
+        const motionAlert = document.getElementById('motionAlert');
+        const alertsGrid = document.getElementById('alertsGrid');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const toggleMuteBtn = document.getElementById('toggleMute');
+        const toggleFullscreenBtn = document.getElementById('toggleFullscreen');
+        const toggleFullscreenAltBtn = document.getElementById('toggleFullscreenAlt');
+        const takeSnapshotBtn = document.getElementById('takeSnapshot');
+        const videoContainer = document.querySelector('.video-container');
+        const recordsTableBody = document.getElementById('recordsTableBody');
+        
+        // State variables
+        let isPaused = false;
+        let isMuted = true;
+        let lastAlertTime = 0;
+        let backgroundFrame = null;
+        let stream = null;
+        let animationId = null;
+        let recordId = 1;
+        
+        // Initialize the camera and motion detection
+        async function initCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'environment'
+                    },
+                    audio: true
+                });
+                videoFeed.srcObject = stream;
+                
+                // Set canvas dimensions to match video feed
+                videoFeed.addEventListener('loadedmetadata', () => {
+                    videoCanvas.width = videoFeed.videoWidth;
+                    videoCanvas.height = videoFeed.videoHeight;
+                    processingCanvas.width = videoFeed.videoWidth;
+                    processingCanvas.height = videoFeed.videoHeight;
+                    
+                    // Start processing frames for motion detection
+                    processVideo();
+                });
+                
+                console.log("Camera initialized successfully");
+            } catch (err) {
+                console.error('Camera error:', err);
+                alert('Could not access camera. Please ensure you have granted camera permissions.');
+            }
+        }
+        
+        // Main video processing function
+        function processVideo() {
+            if (isPaused) {
+                animationId = requestAnimationFrame(processVideo);
+                return;
+            }
+            
+            // Draw video frame to canvas for processing
+            if (videoFeed.readyState === videoFeed.HAVE_ENOUGH_DATA) {
+                ctxVideo.drawImage(videoFeed, 0, 0, videoCanvas.width, videoCanvas.height);
+                
+                // Process frame for motion detection
+                detectMotion();
+            }
+            
+            // Continue processing
+            animationId = requestAnimationFrame(processVideo);
+        }
+        
+        // Motion detection logic
+        function detectMotion() {
+            // Get current frame data
+            ctxProcessing.drawImage(videoFeed, 0, 0, processingCanvas.width, processingCanvas.height);
+            const currentFrame = ctxProcessing.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
+            
+            // Convert to grayscale
+            const grayFrame = convertToGrayscale(currentFrame);
+            
+            // If we don't have a background frame, use the current one
+            if (!backgroundFrame) {
+                backgroundFrame = grayFrame;
+                return;
+            }
+            
+            // Compute absolute difference between current and background
+            const diff = computeFrameDifference(backgroundFrame, grayFrame);
+            
+            // Threshold the difference
+            const thresholded = thresholdDifference(diff, MOTION_THRESHOLD);
+            
+            // Find contours (areas of motion)
+            const contours = findContours(thresholded);
+            
+            // Filter small contours and draw detection boxes
+            const motionAreas = contours.filter(contour => contour.area > MIN_MOTION_AREA);
+            drawDetectionBoxes(motionAreas);
+            
+            // Update background occasionally (when no motion)
+            if (motionAreas.length === 0) {
+                backgroundFrame = grayFrame;
+            }
+            
+            // Trigger alert if motion detected
+            if (motionAreas.length > 0) {
+                handleMotionDetected();
+            }
+        }
+        
+        // Helper functions for image processing
+        function convertToGrayscale(frameData) {
+            const gray = new Uint8Array(frameData.width * frameData.height);
+            for (let i = 0; i < frameData.data.length; i += 4) {
+                const r = frameData.data[i];
+                const g = frameData.data[i + 1];
+                const b = frameData.data[i + 2];
+                gray[i / 4] = 0.299 * r + 0.587 * g + 0.114 * b; // Luminosity method
+            }
+            return { data: gray, width: frameData.width, height: frameData.height };
+        }
+        
+        function computeFrameDifference(frame1, frame2) {
+            const diff = new Uint8Array(frame1.data.length);
+            for (let i = 0; i < frame1.data.length; i++) {
+                diff[i] = Math.abs(frame1.data[i] - frame2.data[i]);
+            }
+            return { data: diff, width: frame1.width, height: frame1.height };
+        }
+        
+        function thresholdDifference(diff, threshold) {
+            const thresholded = new Uint8Array(diff.data.length);
+            for (let i = 0; i < diff.data.length; i++) {
+                thresholded[i] = diff.data[i] > threshold ? 255 : 0;
+            }
+            return { data: thresholded, width: diff.width, height: diff.height };
+        }
+        
+        // Simple contour detection (for demo purposes)
+        function findContours(thresholded) {
+            // This is a simplified version - in a real app you might use OpenCV.js
+            // or a more sophisticated algorithm
+            const contours = [];
+            const visited = new Set();
+            
+            for (let y = 0; y < thresholded.height; y++) {
+                for (let x = 0; x < thresholded.width; x++) {
+                    const idx = y * thresholded.width + x;
+                    if (thresholded.data[idx] === 255 && !visited.has(idx)) {
+                        // Simple flood fill to find connected components
+                        const { area, minX, minY, maxX, maxY } = floodFill(
+                            thresholded, x, y, visited
+                        );
+                        
+                        if (area > 10) { // Ignore tiny areas
+                            contours.push({
+                                area,
+                                x: minX,
+                                y: minY,
+                                width: maxX - minX,
+                                height: maxY - minY
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return contours;
+        }
+        
+        function floodFill(thresholded, startX, startY, visited) {
+            const queue = [[startX, startY]];
+            let area = 0;
+            let minX = startX, minY = startY, maxX = startX, maxY = startY;
+            
+            while (queue.length > 0) {
+                const [x, y] = queue.pop();
+                const idx = y * thresholded.width + x;
+                
+                if (x < 0 || x >= thresholded.width || y < 0 || y >= thresholded.height) continue;
+                if (visited.has(idx)) continue;
+                if (thresholded.data[idx] !== 255) continue;
+                
+                visited.add(idx);
+                area++;
+                
+                // Update bounding box
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+                
+                // Add neighbors to queue
+                queue.push([x + 1, y]);
+                queue.push([x - 1, y]);
+                queue.push([x, y + 1]);
+                queue.push([x, y - 1]);
+            }
+            
+            return { area, minX, minY, maxX, maxY };
+        }
+        
+        // Visual feedback for motion detection
+        function drawDetectionBoxes(contours) {
+            // Hide all boxes first
+            detectionBoxes.forEach(box => box.style.display = 'none');
+            
+            // Show boxes for detected motion areas
+            contours.forEach((contour, index) => {
+                if (index < detectionBoxes.length) {
+                    const box = detectionBoxes[index];
+                    box.style.display = 'block';
+                    box.style.left = `${(contour.x / videoCanvas.width) * 100}%`;
+                    box.style.top = `${(contour.y / videoCanvas.height) * 100}%`;
+                    box.style.width = `${(contour.width / videoCanvas.width) * 100}%`;
+                    box.style.height = `${(contour.height / videoCanvas.height) * 100}%`;
+                }
+            });
+        }
+        
+        // Handle motion detected event
+        function handleMotionDetected() {
+            const now = Date.now();
+            
+            // Check cooldown
+            if (now - lastAlertTime < ALERT_COOLDOWN) return;
+            
+            lastAlertTime = now;
+            
+            // Show visual alert
+            motionAlert.style.display = 'block';
+            setTimeout(() => {
+                motionAlert.style.display = 'none';
+            }, 2000);
+            
+            // Add to alerts grid
+            addAlertToGrid('Motion Detected', 'Camera 1', now);
+            
+            // Add to recorded data table
+            addRecordToTable('Motion Event', now, 'Alert');
+            
+            // Send to backend (optional)
+            sendAlertToBackend(now);
+        }
+        
+        // Add alert to the alerts grid
+        function addAlertToGrid(type, camera, timestamp) {
+            const timeStr = new Date(timestamp).toLocaleTimeString();
+            const alertItem = document.createElement('div');
+            alertItem.className = 'alert-item';
+            alertItem.innerHTML = `
+                <div class="alert-icon warning">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <div class="alert-content">
+                    <h4>${type}</h4>
+                    <p>${camera} - ${timeStr}</p>
+                </div>
+            `;  
+            
+            // Add to top of grid
+            if (alertsGrid.firstChild) {
+                alertsGrid.insertBefore(alertItem, alertsGrid.firstChild);
+            } else {
+                alertsGrid.appendChild(alertItem);
+            }
+            
+            // Limit to 4 items
+            while (alertsGrid.children.length > 4) {
+                alertsGrid.removeChild(alertsGrid.lastChild);
+            }
+        }
+        
+        // Add record to the table
+        function addRecordToTable(name, timestamp, status) {
+            const date = new Date(timestamp);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>REC_${recordId.toString().padStart(4, '0')}</td>
+                <td>${date.toLocaleDateString()}</td>
+                <td>${date.toLocaleTimeString()}</td>
+                <td><span class="status ${status.toLowerCase()}">${status}</span></td>
+            `;
+            
+            // Add to top of table
+            if (recordsTableBody.firstChild) {
+                recordsTableBody.insertBefore(row, recordsTableBody.firstChild);
+            } else {
+                recordsTableBody.appendChild(row);
+            }
+            
+            recordId++;
+            
+            // Limit to 5 rows
+            while (recordsTableBody.children.length > 5) {
+                recordsTableBody.removeChild(recordsTableBody.lastChild);
+            }
+        }
+        
+        // Send alert to backend
+        function sendAlertToBackend(timestamp) {
+            fetch('http://localhost:5000/alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    type: 'motion',
+                    camera: document.getElementById('camera-select').value,
+                    timestamp: new Date(timestamp).toISOString(),
+                    location: document.getElementById('camera-location').textContent
+                })
+            })
+            .catch(err => console.error('Failed to send alert:', err));
+        }
+        
+        // Take snapshot function
+        function takeSnapshot() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = videoFeed.videoWidth;
+            canvas.height = videoFeed.videoHeight;
+            
+            context.drawImage(videoFeed, 0, 0, canvas.width, canvas.height);
+            
+            // Create an image from canvas
+            const image = canvas.toDataURL('image/png');
+            
+            // Add to recorded data table
+            addRecordToTable('Snapshot', Date.now(), 'Saved');
+            
+            // Optionally, create a download link
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `snapshot_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+            link.click();
+        }
+        
+        // Toggle fullscreen function
+        function toggleFullscreen() {
+            const videoContainer = document.querySelector('.video-container');
+            
+            if (!document.fullscreenElement) {
+                if (videoContainer.requestFullscreen) {
+                    videoContainer.requestFullscreen();
+                } else if (videoContainer.webkitRequestFullscreen) {
+                    videoContainer.webkitRequestFullscreen();
+                } else if (videoContainer.msRequestFullscreen) {
+                    videoContainer.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        }
+        
+        // Toggle mute function
+        function toggleMute() {
+            if (stream) {
+                const audioTracks = stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    isMuted = !isMuted;
+                    audioTracks[0].enabled = !isMuted;
+                    toggleMuteBtn.innerHTML = isMuted ? 
+                        '<i class="fas fa-volume-mute"></i>' : 
+                        '<i class="fas fa-volume-up"></i>';
+                }
+            }
+        }
+        
+        // Event listeners
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseBtn.className = isPaused ? 'fas fa-play' : 'fas fa-pause';
+            
+            if (!isPaused && !animationId) {
+                processVideo();
+            }
+            
+            // Pause/resume video
+            if (isPaused) {
+                videoFeed.pause();
+            } else {
+                videoFeed.play();
+            }
+        });
+        
+        toggleMuteBtn.addEventListener('click', toggleMute);
+        toggleFullscreenBtn.addEventListener('click', toggleFullscreen);
+        toggleFullscreenAltBtn.addEventListener('click', toggleFullscreen);
+        takeSnapshotBtn.addEventListener('click', takeSnapshot);
+        
+        // Camera select change event
+        document.getElementById('camera-select').addEventListener('change', function() {
+            const cameraId = this.value;
+            const cameraLocations = {
+                'cam1': 'Kalimalang',
+                'cam2': 'Front Gate',
+                'cam3': 'Parking Area',
+                'cam4': 'Lobby'
+            };
+            document.getElementById('camera-location').textContent = cameraLocations[cameraId] || 'Unknown';
+        });
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize camera
+            initCamera();
+            
+            // Add some initial records for demonstration
+            addRecordToTable('System Start', Date.now(), 'Info');
+            
+            // Update date and time
+            function updateDateTime() {
+                const now = new Date();
+                document.getElementById('current-date').textContent = 
+                    `${now.getDate()}/${now.toLocaleString('default', { month: 'short' })}/${now.getFullYear()}`;
+                document.getElementById('current-time').textContent = 
+                    now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+        });
+        
+        // Clean up when page is closed
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+    </script>
+</body>
+</html>
